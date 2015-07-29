@@ -1,22 +1,21 @@
 var http = require('http');
 var fs = require('fs');
 var cheerio = require('cheerio');
-var baseUrl='http://www.hochzeitssaengerinnen-und-hochzeitssaenger.de';
+var baseUrl = 'http://www.hochzeitssaengerinnen-und-hochzeitssaenger.de';
 
 function handleList(data) {
     var $ = cheerio.load(data);
 
     var count = 0;
-    $('a').each(function () {
+    $('a[itemprop=url]').each(function () {
         var link = $(this);
         var title = link.text();
         var href = link.attr('href');
 
-        if (href && href.indexOf('hochzeitssaenger') == 0) {
+        if (href) {
             count++;
             console.log(title + ", " + href);
         }
-
     });
 
     console.log('Total count:' + count);
@@ -26,57 +25,68 @@ function handleList(data) {
 function handleDetail(data) {
     var $ = cheerio.load(data);
 
-    var pattern = /.*line_(.*)\.gif/;
-    var singer = {};
-    $('table table table table').find('tr').each(function () {
-        var tr = $(this);
-        var img = tr.find('td:first-child img');
+    var messe = {};
+    var content = $('#content');
+    messe['title'] = content.find('h1[itemprop=name]').text();
 
-        var imgsrc = img.attr('src');
-
-        if (imgsrc) {
-            var matchresult = imgsrc.match(pattern);
-            if (matchresult) {
-                var data = tr.find('td:nth-child(2)');
-                console.log(data.text().trim());
-
-                var key = matchresult[1];
-                var value = data.text().trim();
-
-                value = removetabs(value);
-
-                singer[key]=value;
-
-                console.log(matchresult[1]);
-                console.log(imgsrc);
-            }
+    content.find('a').each(function () {
+        if ($(this).text() == "Link zur Homepage der Hochzeitsmesse ...") {
+            messe['url'] = $(this).attr('href');
         }
     });
 
-    return singer;
+    content.find('fieldset').each(function () {
+        var label = $(this).find('legend').text();
+
+        if (label == 'Messe-Termin(e)') {
+            var day = 0;
+
+            $(this).find('p').each(function () {
+                day++;
+                var dateLabel = '';
+
+                $(this).contents().each(function () {
+                    var text = $(this).text().trim();
+
+                    if (text.indexOf(',') != -1) {
+                        dateLabel = text.substring(text.indexOf(',') + 1, text.length).trim();
+                    }
+                    else if (text.length > 0) {
+                        dateLabel += ', ' + text;
+                    }
+
+                });
+
+                console.log('[' + dateLabel + ']');
+                console.log('- -');
+
+                messe['Tag' + day] = dateLabel;
+            });
+        }
+        else if (label == 'Messe-Ort') {
+            messe['Location']=$(this).find('b[itemprop=name]').text();
+            $(this).find('span[itemprop=address]').each(function(){
+
+            });
+        }
+
+        console.log(label);
+    });
+
+    return messe;
 }
 
-function extractPublisher(data) {
-    var $ = cheerio.load(data);
-
-    var generator = $('meta[name=generator]').attr('content');
-    var publisher = $('meta[name=publisher]').attr('content');
-    var author = $('meta[name=author]').attr('content');
-
-    console.log('META: ' + generator + '\t' + publisher + '\t' + author);
-    scrapeGemeinde(gemeindeIndex++);
-}
 
 function readFromFile() {
-    fs.readFile('details.html', function (err, data) {
+    fs.readFile('einemesse.html', function (err, data) {
         if (err)
             throw err;
-        var singer = handleDetail(data);
+        var messen = handleDetail(data);
 
-        var outputFilename = 'singer.json';
+        var outputFilename = 'messen.json';
 
-        fs.writeFile(outputFilename, JSON.stringify(singer, null, 4), function(err) {
-            if(err) {
+        fs.writeFile(outputFilename, JSON.stringify(messen, null, 4), function (err) {
+            if (err) {
                 console.log(err);
             } else {
                 console.log("JSON saved to " + outputFilename);
@@ -85,18 +95,18 @@ function readFromFile() {
     });
 }
 
-function removetabs(value){
+function removetabs(value) {
     var pattern = /\t\t/;
 
     var beforeLength;
     var newLength;
 
-    do{
+    do {
         beforeLength = value.length;
         value = value.replace(pattern, '\t');
-        newLength=value.length;
+        newLength = value.length;
     }
-    while(beforeLength > newLength);
+    while (beforeLength > newLength);
 
     return value;
 }
@@ -114,36 +124,12 @@ function handleError(e) {
 function getLive() {
     console.log("Getting data...");
 
-        var url = baseUrl + '/.nach-bundesland-hochzeitsmusik-hochzeit-music.html';
-        console.log("Loading " + url);
-        http.get(url, handleResponse).on('error', handleError);
+    var url = baseUrl + '/.nach-bundesland-hochzeitsmusik-hochzeit-music.html';
+    console.log("Loading " + url);
+    http.get(url, handleResponse).on('error', handleError);
 }
 
-function scrapeGemeinde(index) {
-    if (index < gemeinden.length) {
-        console.log(index + " Getting data for " + gemeinden[index]);
-        var url = gemeinden[index];
-        http.get(url, function (res) {
-            var data = "";
-            res.on('readable', function () {
-                data += res.read();
-            });
-            res.on('end', function () {
-                var $ = cheerio.load(data);
+readFromFile();
+//getLive();
 
-                var generator = $('meta[name=generator]').attr('content');
-                var publisher = $('meta[name=publisher]').attr('content');
-                var author = $('meta[name=author]').attr('content');
-
-                console.log('META: ' + generator + '\t' + publisher + '\t' + author);
-                scrapeGemeinde(++index);
-            });
-        }).on('error', function (e) {
-            console.log("Got error: " + e.message);
-            scrapeGemeinde(++index);
-        });
-    }
-}
-
-//readFromFile();
-getLive();
+module.exports = readFromFile;

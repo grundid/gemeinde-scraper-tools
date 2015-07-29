@@ -4,13 +4,13 @@
   "description": "gemeinde-scraper-tools",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified! Configure in package.json\" && exit 1"
+    "test": "jasmine"
   },
   "dependencies": {
-	    "cheerio": ">= 0.12.1",
-	    "mongojs": ">= 0.7.10",
-	    "iconv-lite": ">= 0.2.11"
-	  },
+    "cheerio": ">= 0.12.1",
+    "mongojs": ">= 0.7.10",
+    "iconv-lite": ">= 0.2.11"
+  },
   "repository": "",
   "keywords": [
     "Node.js",
@@ -19,5 +19,8 @@
   ],
   "author": "",
   "license": "BSD",
-  "readmeFilename": "README.md"
+  "readmeFilename": "README.md",
+  "devDependencies": {
+    "jasmine-core": "^2.3.4"
+  }
 }
