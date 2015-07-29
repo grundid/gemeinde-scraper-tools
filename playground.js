@@ -19,7 +19,6 @@ function handleList(data) {
     });
 
     console.log('Total count:' + count);
-
 }
 
 function handleDetail(data) {
@@ -64,18 +63,54 @@ function handleDetail(data) {
             });
         }
         else if (label == 'Messe-Ort') {
-            messe['Location']=$(this).find('b[itemprop=name]').text();
+            messe['Location'] = $(this).find('b[itemprop=name]').text();
 
-            $(this).find('span[itemprop=address]').each(function(){
-                messe['Straße']=$(this).find('span[itemprop=streetAddress]');
-                messe['PLZ']=$(this).find('span[itemprop=postalCode]');
-                messe['Veranstaltungsort']=$(this).find('span[itemprop=addressLocality]');
-                messe['Veranstaltungsort']=$(this).find('span[itemprop=addressLocality]');
+            $(this).find('span[itemprop=address]').each(function () {
+                messe['Strasse'] = $(this).find('span[itemprop=streetAddress]').text();
+                messe['PLZ'] = $(this).find('span[itemprop=postalCode]').text();
+                messe['Veranstaltungsort'] = $(this).find('span[itemprop=addressLocality]').text();
+                messe['Land'] = $(this).find('span[itemprop=addressCountry]').text();
+
             });
         }
+        else if (label == 'Messe-Veranstalter') {
 
-        console.log(label);
+            var count = 0;
+            $(this).find('p').each(function () {
+                var addr = removetabs($(this).text().trim()).split(/\t/);
+
+                if (count == 0) {
+                    messe['VeranstalterName'] = addr[0].trim();
+                    messe['VeranstalterStrasse'] = addr[1].trim();
+                    messe['VeranstalterPLZ'] = addr[2].split(' ')[0].trim();
+                    messe['VeranstalterOrt'] = addr[2].split(' ')[1].trim();
+                }
+                else if (count == 1) {
+                    messe['VeranstalterTel'] = addr[0].trim();
+                    messe['VeranstalterMail'] = addr[1].trim();
+
+                    $(this).find('a').each(function () {
+                        if ($(this).text() == 'Homepage des Veranstalters ...') {
+                            messe['VeranstalterUrl'] = $(this).attr('href');
+                        }
+                    });
+                }
+                console.log('[' + addr + ']');
+                count++;
+            });
+        }
+        else if (label == 'Messe-Preise') {
+
+            var price = '';
+            $(this).find('tr').each(function () {
+                price += removetabs($(this).find('td.listTableHeaderLeft').text()) + '\n';
+                price += removetabs($(this).find('td[style]').text());
+            })
+            messe['Preise'] = price;
+        }
+
     });
+    console.log(messe);
 
     return messe;
 }
@@ -89,13 +124,13 @@ function readFromFile() {
 
         var outputFilename = 'messen.json';
 
-        fs.writeFile(outputFilename, JSON.stringify(messen, null, 4), function (err) {
-            if (err) {
-                console.log(err);
-            } else {
-                console.log("JSON saved to " + outputFilename);
-            }
-        });
+        /*fs.writeFile(outputFilename, JSON.stringify(messen, null, 4), function (err) {
+         if (err) {
+         console.log(err);
+         } else {
+         console.log("JSON saved to " + outputFilename);
+         }
+         });*/
     });
 }
 
@@ -136,4 +171,4 @@ function getLive() {
 readFromFile();
 //getLive();
 
-module.exports = readFromFile;
+//module.exports = readFromFile;
