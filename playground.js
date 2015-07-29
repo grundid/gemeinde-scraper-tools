@@ -1,102 +1,149 @@
 var http = require('http');
 var fs = require('fs');
 var cheerio = require('cheerio');
-var gemeindeIndex = 0;
-var gemeinden = [ "http://www.abstatt.de/", "http://www.bad-friedrichshall.de/",
-		"http://bad-rappenau.de/", "http://badwimpfen.de/", "http://beilstein.de",
-		"http://www.brackenheim.de/", "http://www.cleebronn.de/website/",
-		"http://www.eberstadt.de/", "http://www.ellhofen.de", "http://www.eppingen.de",
-		"http://www.erlenbach-hn.de/", "http://www.flein.de/", "http://www.gemmingen.eu/",
-		"http://www.gundelsheim.de/", "http://www.gueglingen.de/website/deu",
-		"http://www.hardthausen.de/", "http://www.ilsfeld.de/", "http://www.ittlingen.de/",
-		"http://www.jagsthausen.de/", "http://www.kirchardt.de/", "http://www.langenbrettach.de/",
-		"http://www.lauffen.de", "http://www.lehrensteinsfeld.de/", "http://www.leingarten.de/",
-		"http://www.stadt-loewenstein.de/start/", "http://www.massenbachhausen.de/",
-		"http://www.moeckmuehl.de/", "http://www.neckarsulm.de/", "http://www.neckarwestheim.de",
-		"http://www.neudenau.de", "http://www.neuenstadt.de/", "http://www.nordheim.de/website/",
-		"http://www.obersulm.de/", "http://www.oedheim.de/", "http://www.offenau.de/",
-		"http://www.pfaffenhofen-wuertt.de/website/de/", "http://www.roigheim.de",
-		"http://www.schwaigern.de/", "http://www.siegelsbach.de/", "http://www.talheim.de",
-		"http://www.untereisesheim.de/", "http://www.untergruppenbach.de",
-		"http://www.weinsberg.de", "http://www.widdern.de/", "http://www.gemeinde-wuestenrot.de/",
-		"http://www.zaberfeld.de/" ];
+var baseUrl='http://www.hochzeitssaengerinnen-und-hochzeitssaenger.de';
 
-function handleData(data) {
-	var $ = cheerio.load(data);
-	$('#contentbereich').find('li').each(function(index, element) {
-		var link = $(this).find('div.aktuellbereichText a').first();
-		var title = link.text();
-		var href = link.attr('href');
-		var date = new Date();
+function handleList(data) {
+    var $ = cheerio.load(data);
 
-		console.log(title + ", " + href + " => " + date);
-	});
+    var count = 0;
+    $('a').each(function () {
+        var link = $(this);
+        var title = link.text();
+        var href = link.attr('href');
 
+        if (href && href.indexOf('hochzeitssaenger') == 0) {
+            count++;
+            console.log(title + ", " + href);
+        }
+
+    });
+
+    console.log('Total count:' + count);
+
+}
+
+function handleDetail(data) {
+    var $ = cheerio.load(data);
+
+    var pattern = /.*line_(.*)\.gif/;
+    var singer = {};
+    $('table table table table').find('tr').each(function () {
+        var tr = $(this);
+        var img = tr.find('td:first-child img');
+
+        var imgsrc = img.attr('src');
+
+        if (imgsrc) {
+            var matchresult = imgsrc.match(pattern);
+            if (matchresult) {
+                var data = tr.find('td:nth-child(2)');
+                console.log(data.text().trim());
+
+                var key = matchresult[1];
+                var value = data.text().trim();
+
+                value = removetabs(value);
+
+                singer[key]=value;
+
+                console.log(matchresult[1]);
+                console.log(imgsrc);
+            }
+        }
+    });
+
+    return singer;
 }
 
 function extractPublisher(data) {
-	var $ = cheerio.load(data);
+    var $ = cheerio.load(data);
 
-	var generator = $('meta[name=generator]').attr('content');
-	var publisher = $('meta[name=publisher]').attr('content');
-	var author = $('meta[name=author]').attr('content');
+    var generator = $('meta[name=generator]').attr('content');
+    var publisher = $('meta[name=publisher]').attr('content');
+    var author = $('meta[name=author]').attr('content');
 
-	console.log('META: ' + generator + '\t' + publisher + '\t' + author);
-	scrapeGemeinde(gemeindeIndex++);
+    console.log('META: ' + generator + '\t' + publisher + '\t' + author);
+    scrapeGemeinde(gemeindeIndex++);
 }
 
 function readFromFile() {
-	fs.readFile('ittlingen.html', function(err, data) {
-		if (err)
-			throw err;
-		handleData(data);
-	});
+    fs.readFile('details.html', function (err, data) {
+        if (err)
+            throw err;
+        var singer = handleDetail(data);
+
+        var outputFilename = 'singer.json';
+
+        fs.writeFile(outputFilename, JSON.stringify(singer, null, 4), function(err) {
+            if(err) {
+                console.log(err);
+            } else {
+                console.log("JSON saved to " + outputFilename);
+            }
+        });
+    });
+}
+
+function removetabs(value){
+    var pattern = /\t\t/;
+
+    var beforeLength;
+    var newLength;
+
+    do{
+        beforeLength = value.length;
+        value = value.replace(pattern, '\t');
+        newLength=value.length;
+    }
+    while(beforeLength > newLength);
+
+    return value;
 }
 
 function handleResponse(res) {
-	res.on('readable', function() {
-		var data = res.read();
-		extractPublisher(data);
-	});
+    res.on('readable', function () {
+        var data = res.read();
+        handleList(data);
+    });
 }
 function handleError(e) {
-	console.log("Got error: " + e.message);
+    console.log("Got error: " + e.message);
 }
 
 function getLive() {
-	console.log("Getting data...");
-	for ( var page = 1; page < 7; page++) {
-		var url = "http://www.untergruppenbach.de/index.php?id=7&publish[p]=7&publish[start]="
-				+ page;
-		console.log("Loading " + url);
-		http.get(url, handleResponse).on('error', handleError);
-	}
+    console.log("Getting data...");
+
+        var url = baseUrl + '/.nach-bundesland-hochzeitsmusik-hochzeit-music.html';
+        console.log("Loading " + url);
+        http.get(url, handleResponse).on('error', handleError);
 }
 
 function scrapeGemeinde(index) {
-	if (index < gemeinden.length) {
-		console.log(index + " Getting data for " + gemeinden[index]);
-		var url = gemeinden[index];
-		http.get(url, function(res) {
-			var data = "";
-			res.on('readable', function() {
-				data += res.read();
-			});
-			res.on('end', function() {
-				var $ = cheerio.load(data);
+    if (index < gemeinden.length) {
+        console.log(index + " Getting data for " + gemeinden[index]);
+        var url = gemeinden[index];
+        http.get(url, function (res) {
+            var data = "";
+            res.on('readable', function () {
+                data += res.read();
+            });
+            res.on('end', function () {
+                var $ = cheerio.load(data);
 
-				var generator = $('meta[name=generator]').attr('content');
-				var publisher = $('meta[name=publisher]').attr('content');
-				var author = $('meta[name=author]').attr('content');
+                var generator = $('meta[name=generator]').attr('content');
+                var publisher = $('meta[name=publisher]').attr('content');
+                var author = $('meta[name=author]').attr('content');
 
-				console.log('META: ' + generator + '\t' + publisher + '\t' + author);
-				scrapeGemeinde(++index);
-			});
-		}).on('error', function(e) {
-			console.log("Got error: " + e.message);
-			scrapeGemeinde(++index);
-		});
-	}
+                console.log('META: ' + generator + '\t' + publisher + '\t' + author);
+                scrapeGemeinde(++index);
+            });
+        }).on('error', function (e) {
+            console.log("Got error: " + e.message);
+            scrapeGemeinde(++index);
+        });
+    }
 }
 
-readFromFile();
+//readFromFile();
+getLive();
