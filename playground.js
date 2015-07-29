@@ -65,8 +65,12 @@ function handleDetail(data) {
         }
         else if (label == 'Messe-Ort') {
             messe['Location']=$(this).find('b[itemprop=name]').text();
-            $(this).find('span[itemprop=address]').each(function(){
 
+            $(this).find('span[itemprop=address]').each(function(){
+                messe['Straße']=$(this).find('span[itemprop=streetAddress]');
+                messe['PLZ']=$(this).find('span[itemprop=postalCode]');
+                messe['Veranstaltungsort']=$(this).find('span[itemprop=addressLocality]');
+                messe['Veranstaltungsort']=$(this).find('span[itemprop=addressLocality]');
             });
         }
 
